@@ -9,9 +9,11 @@ pub struct BLocal {
 impl BReadable for BLocal {
     fn read(reader: &mut super::breader::BReader) -> Self {
         Self {
-            local_name: reader.get_string(),
+            local_name: reader
+                .get_string()
+                .expect("Local had name string of length 0"),
             scope_start: reader.get_int(),
-            scope_end: reader.get_int()
+            scope_end: reader.get_int(),
         }
     }
 }
