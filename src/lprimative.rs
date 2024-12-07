@@ -31,27 +31,19 @@ pub enum LValue<'i> {
     //Functions
     LClosure(LClosure<'i>),
     CClosure(CFunction<'i>),
-
     //Table
 
     //Thread
 
     //UserData is a pointer to user memory I guess for embedded applications
-
-    //Internal types
-    EmptyRegister,
 }
 impl<'i> Clone for LValue<'i> {
     fn clone(&self) -> Self {
         match self {
             LValue::LPrimitive(p) => LValue::LPrimitive(p.clone()),
 
-            LValue::LClosure(_) => panic!("Attempted to clone LCLosure primitive type"),
-            LValue::CClosure(_) => panic!("Attempted to clone LCLosure primitive type"),
-
-            // LValue::UserData => panic!("Attempted to clone UserData primitive type"),
-            LValue::EmptyRegister => LValue::EmptyRegister,
-            // LValue::ByRef(_) => panic!("Atemtpted to clone LValue::ByRef"),
+            LValue::LClosure(_) => panic!("cannot clone LCLosure primitive type"),
+            LValue::CClosure(_) => panic!("cannot clone LCLosure primitive type"),
         }
     }
 }

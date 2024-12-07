@@ -96,6 +96,31 @@ impl<'i> LClosure<'i> {
 
                             stack[base + a] = b;
                         }
+                        2 => {
+                            // LOADBOOL
+                            //  Loads a boolean value (true or false) into register R(A). true is usually
+                            //  encoded as an integer 1, false is always 0. If C is non-zero, then the next
+                            //  instruction is skipped (this is used when you have an assignment
+                            //  statement where the expression uses relational operators, e.g. M = K>5.)
+                            //
+                            //  You can use any non-zero value for the boolean true in field B, but since
+                            //  you cannot use booleans as numbers in Lua, it’s best to stick to 1 for true.
+                            // let b = match &*stack[base + b].borrow() {
+                            //     //By value
+                            //     LValue::LPrimitive(p) => {
+                            //         Rc::new(RefCell::new(LValue::LPrimitive(p.clone())))
+                            //     }
+                            //     //By reference
+                            //     _ => todo!("MOVE by reference or unhandled"),
+                            // };
+
+                            stack[base + a] =
+                                Rc::new(RefCell::new(LValue::LPrimitive(LPrimitive::BOOL(b != 0))));
+
+                            if c != 0 {
+                                pc += 1;
+                            }
+                        }
                         opcode @ 12..=17 => {
                             // ADD, SUB, MUL, DIV, MOD, POW
                             let lhs: f64 = if b < 256 {
@@ -219,6 +244,17 @@ impl<'i> LClosure<'i> {
                             stack[base + a] = Rc::new(RefCell::new(LValue::LPrimitive(
                                 Kst!(self.proto, b).clone(),
                             )));
+                        }
+                        3 => {
+                            // LOADNIL
+                            //  Sets a range of registers from R(A) to R(B) to nil. If a single register is to
+                            //  be assigned to, then R(A) = R(B). When two or more consecutive locals
+                            //  need to be assigned nil values, only a single LOADNIL is needed.
+
+                            for i in a..=b {
+                                stack[base + i] =
+                                    Rc::new(RefCell::new(LValue::LPrimitive(LPrimitive::NIL)));
+                            }
                         }
                         5 => {
                             // GETGLOBAL

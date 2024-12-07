@@ -1,2 +1,2 @@
-local a = 10
-print("Hello world", a+5)
+local a = nil
+print("Hello world", a)

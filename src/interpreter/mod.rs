@@ -3,7 +3,10 @@ use std::{cell::RefCell, rc::Rc};
 use closure::LClosure;
 
 use self::genv::GlobalEnv;
-use crate::{bytecode::bproto::BProto, lprimative::LValue};
+use crate::{
+    bytecode::bproto::BProto,
+    lprimative::{LPrimitive, LValue},
+};
 
 pub mod cfunction;
 pub mod closure;
@@ -22,7 +25,7 @@ impl<'i> Interpreter<'i> {
         let mut stack = Vec::with_capacity(top.max_stack as usize);
 
         for _ in 0..top.max_stack {
-            stack.push(Rc::new(RefCell::new(LValue::EmptyRegister)));
+            stack.push(Rc::new(RefCell::new(LValue::LPrimitive(LPrimitive::NIL))));
         }
 
         Self {
