@@ -9,9 +9,12 @@ pub mod cfunction;
 pub mod closure;
 pub mod genv;
 
+pub type StackItem<'i> = Rc<RefCell<LValue<'i>>>;
+pub type Stack<'i> = Vec<StackItem<'i>>; //Rc<RefCell<>> temporary garbage collector I guess
+
 pub struct Interpreter<'i> {
     genv: GlobalEnv<'i>,
-    stack: Vec<Rc<RefCell<LValue<'i>>>>, //Rc<RefCell<>> temporary garbage collector I guess
+    stack: Stack<'i>,
     top: Box<BProto>,
 }
 impl<'i> Interpreter<'i> {

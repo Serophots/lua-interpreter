@@ -5,7 +5,7 @@ use crate::{
     lprimative::{LPrimitive, LValue},
 };
 
-use super::genv::GlobalEnv;
+use super::{genv::GlobalEnv, Stack, StackItem};
 
 macro_rules! Kst {
     ($proto:expr, $n:expr) => {
@@ -53,9 +53,9 @@ impl<'i> LClosure<'i> {
     pub fn execute(
         &mut self,
         genv: &'i mut GlobalEnv<'i>,
-        stack: &mut Vec<Rc<RefCell<LValue<'i>>>>, //I guess Rc<Cell<>> is gonna be my temporary garbage collector
+        stack: &'i mut Stack<'i>,
         base: usize,
-    ) -> Vec<()> {
+    ) -> &'i [StackItem<'i>] {
         //Instruction execution
         let mut pc = 0;
 
@@ -135,8 +135,31 @@ impl<'i> LClosure<'i> {
                         }
                         30 => {
                             // RETURN
+                            //  Returns to the calling function, with optional return values. If B is 1, there
+                            //  are no return values. If B is 2 or more, there are (B-1) return values,
+                            //  located in consecutive registers from R(A) onwards.
+                            //
+                            //  If B is 0, the set of values from R(A) to the top of the stack is returned. This
+                            //  form is used when the last expression in the return list is a function call, so
+                            //  the number of actual values returned is indeterminate.
+                            //
+                            //  RETURN also closes any open upvalues, equivalent to a CLOSE
+                            //  instruction. See the CLOSE instruction for more information.
 
-                            break;
+                            return match b {
+                                0 => {
+                                    //Params from a to top
+                                    todo!("return with indeterminate parameters");
+                                }
+                                1 => {
+                                    //No return values
+                                    &[]
+                                }
+                                b => {
+                                    //From a to b-1
+                                    &stack[base + a..base + b - 1]
+                                }
+                            };
                         }
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }
@@ -179,8 +202,6 @@ impl<'i> LClosure<'i> {
 
             pc += 1;
         }
-
-        todo!()
     }
 }
 
