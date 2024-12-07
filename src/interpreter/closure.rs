@@ -96,6 +96,49 @@ impl<'i> LClosure<'i> {
 
                             stack[base + a] = b;
                         }
+                        opcode @ 12..=17 => {
+                            // ADD, SUB, MUL, DIV, MOD, POW
+                            let lhs: f64 = if b < 256 {
+                                match &*stack[base + b].borrow() {
+                                    LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
+                                    _ => panic!(
+                                        "ADD failed: Left hand side stack lvalue is not a number"
+                                    ),
+                                }
+                            } else {
+                                match Kst!(self.proto, (b - 256)) {
+                                    LPrimitive::NUMBER(x) => *x,
+                                    _ => panic!("ADD failed: Left hand side constant lprimitive is not a number"),
+                                }
+                            };
+                            let rhs: f64 = if c < 256 {
+                                match &*stack[base + c].borrow() {
+                                    LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
+                                    _ => panic!(
+                                        "ADD failed: Right hand side stack lvalue is not a number"
+                                    ),
+                                }
+                            } else {
+                                match Kst!(self.proto, (c - 256)) {
+                                        LPrimitive::NUMBER(x) => *x,
+                                        _ => panic!("ADD failed: Right hand side constant lprimitive is not a number"),
+                                    }
+                            };
+
+                            stack[base + a] = Rc::new(RefCell::new(LValue::LPrimitive(
+                                LPrimitive::NUMBER(match opcode {
+                                    12 => lhs + rhs,
+                                    13 => lhs - rhs,
+                                    14 => lhs * rhs,
+                                    15 => lhs / rhs,
+                                    16 => lhs % rhs,
+                                    17 => lhs.powf(rhs),
+                                    _ => {
+                                        unreachable!("opcodes 12..=17 are numerical operations")
+                                    }
+                                }),
+                            )));
+                        }
                         28 => {
                             // CALL
                             //  Performs a function call, with register R(A) holding the reference to the
