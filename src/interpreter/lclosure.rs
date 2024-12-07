@@ -5,7 +5,7 @@ use crate::{
     lprimative::{LPrimitive, LValue},
 };
 
-use super::{genv::GlobalEnv, Stack, StackItem};
+use super::{genv::GlobalEnv, Stack};
 
 macro_rules! Kst {
     ($proto:expr, $n:expr) => {
@@ -14,6 +14,15 @@ macro_rules! Kst {
             .list
             .get($n as usize)
             .expect("No constant exists at Kst!() lookup")
+    };
+}
+macro_rules! Proto {
+    ($proto:expr, $n:expr) => {
+        $proto
+            .protos
+            .list
+            .get($n as usize)
+            .expect("No proto exists at Proto!() lookup")
     };
 }
 macro_rules! genv {
@@ -29,7 +38,7 @@ macro_rules! genv {
 /// 'i lifetime lives as long as the Interpreter does
 #[derive(Debug)]
 pub struct LClosure<'i> {
-    proto: &'i Box<BProto>,
+    proto: &'i BProto,
     upvalues: Vec<Rc<RefCell<LValue<'i>>>>,
 }
 impl<'i> LClosure<'i> {
@@ -40,7 +49,7 @@ impl<'i> LClosure<'i> {
     ///
     /// The upvalue LValue's must be reference variants to LValue's owned by
     /// stacks of parent closures
-    pub fn new(proto: &'i Box<BProto>, upvalues: Vec<Rc<RefCell<LValue<'i>>>>) -> LClosure<'i> {
+    pub fn new(proto: &'i BProto, upvalues: Vec<Rc<RefCell<LValue<'i>>>>) -> LClosure<'i> {
         assert_eq!(
             proto.num_upvalues as usize,
             upvalues.len(),
@@ -51,11 +60,18 @@ impl<'i> LClosure<'i> {
     }
 
     pub fn execute(
-        &mut self,
-        genv: &'i mut GlobalEnv<'i>,
-        stack: &'i mut Stack<'i>,
-        base: usize,
-    ) -> &'i [StackItem<'i>] {
+        &self,
+        genv: &mut GlobalEnv<'i>,
+        // Begins at and includes the Closure being called. Following
+        // that come varargs then fixed args. The base is the offset
+        // from the bottom of the stack to where the first fixed arg begins
+        // The stack must not be a slice because this function needs to be able to extend the underlying Vector as it sees fit
+        stack: &mut Stack<'i>,
+
+        top: usize,  //Top index of the stack for this function
+        base: usize, //Base index of the stack for this function. The index of the first fixed argument
+        func: usize, //Index of the current LClosure/CClosure being executed on the stack. Between this and base are variable arguments
+    ) {
         //Instruction execution
         let mut pc = 0;
 
@@ -67,7 +83,10 @@ impl<'i> LClosure<'i> {
                 .get(pc)
                 .expect(format!("no instruction found at pc={}", pc).as_str());
 
-            println!("executing {:?}", instruction);
+            println!(
+                "executing func={} base={} top={} {:?}",
+                func, base, top, instruction
+            );
 
             match *instruction {
                 BInstruction::ABC { opcode, a, b, c } => {
@@ -91,6 +110,7 @@ impl<'i> LClosure<'i> {
                                     Rc::new(RefCell::new(LValue::LPrimitive(p.clone())))
                                 }
                                 //By reference
+                                LValue::LClosure(_) => stack[base + b].clone(),
                                 _ => todo!("MOVE by reference or unhandled"),
                             };
 
@@ -183,23 +203,54 @@ impl<'i> LClosure<'i> {
                             //  CALL always updates the top of stack value. CALL, RETURN, VARARG
                             //  and SETLIST can use multiple values (up to the top of the stack.)
 
-                            match b {
-                                0 => {
-                                    //Params from a+1 to top
-                                    todo!("call with indeterminate parameters");
-                                }
-                                b => {
-                                    //b-1 params
+                            let register_a = stack[base + a].clone();
 
-                                    match &*stack[base + a].borrow() {
-                                        LValue::CClosure(c) => {
-                                            c(genv, &stack[base + a + 1..base + a + b])
-                                        }
-                                        LValue::LClosure(_) => todo!("call with LClosure"),
-                                        _ => panic!("CALL called with non-closure"),
+                            match &*register_a.borrow() {
+                                LValue::CClosure(ref function) => {
+                                    let (proto, closure) = function;
+
+                                    let num_args = match b {
+                                        0 => top - b - 1,
+                                        b => b - 1,
                                     };
+
+                                    println!("num_args, {}", num_args);
+
+                                    let _num_varargs = num_args - proto.num_params as usize;
+
+                                    let call_stack = &stack[base + a..];
+                                    closure(genv, call_stack);
                                 }
-                            }
+                                LValue::LClosure(ref closure) => {
+                                    assert_eq!(closure.proto.vararg_flag, 0, "varargs unsupported");
+
+                                    let num_args = match b {
+                                        0 => {
+                                            todo!("CALL with variable number of arguments (top)")
+                                        }
+                                        b => b - 1,
+                                    };
+
+                                    let num_varargs = num_args - closure.proto.num_params as usize; //TODO something here. For now just verbose
+
+                                    let closure_func = base + a;
+                                    let closure_base = closure_func + 1 + num_varargs;
+                                    let closure_top =
+                                        closure_base + closure.proto.max_stack as usize;
+
+                                    //Ensure the stack is large enough
+                                    let delta_stack = closure_top - stack.len();
+                                    if delta_stack > 0 {
+                                        println!("extending stack by {}", delta_stack);
+                                        for _ in 0..delta_stack {
+                                            stack.push(Rc::new(RefCell::new(LValue::default())));
+                                        }
+                                    }
+
+                                    closure.execute(genv, stack, top, closure_base, closure_func);
+                                }
+                                _ => panic!("CALL called with non-closure"),
+                            };
                         }
                         30 => {
                             // RETURN
@@ -214,20 +265,37 @@ impl<'i> LClosure<'i> {
                             //  RETURN also closes any open upvalues, equivalent to a CLOSE
                             //  instruction. See the CLOSE instruction for more information.
 
-                            return match b {
+                            // TODO: Close any open upvalues? is our makeshift gc gonna handle that for us
+                            //
+
+                            match b {
                                 0 => {
                                     //Params from a to top
                                     todo!("return with indeterminate parameters");
                                 }
                                 1 => {
-                                    //No return values
-                                    &[]
+                                    //No return values - clear the stack
+                                    for i in func..top {
+                                        stack[i] = Rc::new(RefCell::new(LValue::default()));
+                                    }
                                 }
                                 b => {
+                                    //Return values are from R(A) to R(B-1). Move them down to the func index
+                                    let mut j = func;
+                                    for i in base + a..base + a + b - 1 {
+                                        stack[j] = Rc::new(RefCell::new(stack[i].take()));
+                                        j += 1;
+                                    }
+
                                     //From a to b-1
-                                    &stack[base + a..base + b - 1]
+                                    // for a in &stack[base + a..base + b - 1] {}
+
+                                    // &stack[base + a..base + b - 1]
+                                    // todo!("return should write its returns to the stack?");
                                 }
-                            };
+                            }
+
+                            return;
                         }
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }
@@ -252,8 +320,7 @@ impl<'i> LClosure<'i> {
                             //  need to be assigned nil values, only a single LOADNIL is needed.
 
                             for i in a..=b {
-                                stack[base + i] =
-                                    Rc::new(RefCell::new(LValue::LPrimitive(LPrimitive::NIL)));
+                                stack[base + i] = Rc::new(RefCell::new(LValue::default()));
                             }
                         }
                         5 => {
@@ -267,6 +334,38 @@ impl<'i> LClosure<'i> {
                             } else {
                                 panic!("GETGLOBAL Kst!(b) points to non-STRING primitive");
                             }
+                        }
+                        36 => {
+                            // CLOSURE
+                            //  Creates an instance (or closure) of a function. Bx is the function number of
+                            //  the function to be instantiated in the table of function prototypes. This table
+                            //  is located after the constant table for each function in a binary chunk. The
+                            //  first function prototype is numbered 0. Register R(A) is assigned the
+                            //  reference to the instantiated function object.
+                            //
+                            //  For each upvalue used by the instance of the function KPROTO[Bx], there
+                            //  is a pseudo-instruction that follows CLOSURE. Each upvalue corresponds
+                            //  to either a MOVE or a GETUPVAL pseudo-instruction. Only the B field on
+                            //  either of these pseudo-instructions are significant.
+                            //
+                            //  A MOVE corresponds to local variable R(B) in the current lexical block,
+                            //  which will be used as an upvalue in the instantiated function. A
+                            //  GETUPVAL corresponds upvalue number B in the current lexical block.
+                            //  The VM uses these pseudo-instructions to manage upvalues.
+
+                            //Fetch the proto to CLOSURE
+                            let proto = Proto!(self.proto, b);
+
+                            //Prepare upvalues
+                            assert!(
+                                proto.num_upvalues == 0,
+                                "CLOSURE upvalues not yet implemented"
+                            );
+
+                            //Create the closure
+                            stack[base + a] = Rc::new(RefCell::new(LValue::LClosure(
+                                LClosure::new(proto, vec![]),
+                            )));
                         }
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::interpreter::{cfunction::CFunction, closure::LClosure};
+use crate::interpreter::{cfunction::CFunction, lclosure::LClosure};
 
 ///Lua primitive types
 #[derive(Clone, Debug)]
@@ -37,6 +37,11 @@ pub enum LValue<'i> {
 
     //UserData is a pointer to user memory I guess for embedded applications
 }
+impl<'i> Default for LValue<'i> {
+    fn default() -> LValue<'i> {
+        LValue::LPrimitive(LPrimitive::NIL)
+    }
+}
 impl<'i> Clone for LValue<'i> {
     fn clone(&self) -> Self {
         match self {
@@ -51,7 +56,8 @@ impl<'i> fmt::Display for LValue<'i> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LValue::LPrimitive(l) => write!(f, "{}", l),
-            _ => write!(f, "[display not implemented for this LValue]"),
+            LValue::CClosure(c) => write!(f, "CClosure: {:p}", c), // TODO: Addresses in rust aren't a great unique identifier since things move a tonne
+            LValue::LClosure(l) => write!(f, "LClosure: {:p}", l), // Maybe attach a unqiue ID to each proto for the LClosure's to be ID'ed and then make CClosures a full type and do something similar there
         }
     }
 }

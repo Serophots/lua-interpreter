@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use closure::LClosure;
+use lclosure::LClosure;
 
 use self::genv::GlobalEnv;
 use crate::{
@@ -9,8 +9,8 @@ use crate::{
 };
 
 pub mod cfunction;
-pub mod closure;
 pub mod genv;
+pub mod lclosure;
 
 pub type StackItem<'i> = Rc<RefCell<LValue<'i>>>;
 pub type Stack<'i> = Vec<StackItem<'i>>; //Rc<RefCell<>> temporary garbage collector I guess
@@ -25,7 +25,7 @@ impl<'i> Interpreter<'i> {
         let mut stack = Vec::with_capacity(top.max_stack as usize);
 
         for _ in 0..top.max_stack {
-            stack.push(Rc::new(RefCell::new(LValue::LPrimitive(LPrimitive::NIL))));
+            stack.push(Rc::new(RefCell::new(LValue::default())));
         }
 
         Self {
@@ -37,9 +37,17 @@ impl<'i> Interpreter<'i> {
 
     pub fn interpret(&'i mut self) {
         //Instantiate a closure for the top proto
-        let mut top_closure = LClosure::<'i>::new(&self.top, vec![]);
+        let top_closure = LClosure::<'i>::new(&self.top, vec![]);
 
         //Call the top closure
-        top_closure.execute(&mut self.genv, &mut self.stack, 0);
+        assert_eq!(self.top.max_stack as usize, self.stack.len());
+
+        top_closure.execute(
+            &mut self.genv,
+            &mut self.stack,
+            self.top.max_stack as usize,
+            0,
+            0,
+        );
     }
 }
