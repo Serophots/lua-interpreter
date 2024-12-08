@@ -19,7 +19,7 @@ pub enum BInstruction {
 }
 impl BReadable for BInstruction {
     fn read(reader: &mut super::breader::BReader) -> Self {
-        let instruction = reader.get_u32_he();
+        let instruction = reader.get_u32();
 
         //Read opcode
         let opcode = (instruction & OPCODE_MASK) as u8;

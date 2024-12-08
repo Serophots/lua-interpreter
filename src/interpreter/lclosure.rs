@@ -50,12 +50,6 @@ impl<'i> LClosure<'i> {
     /// The upvalue LValue's must be reference variants to LValue's owned by
     /// stacks of parent closures
     pub fn new(proto: &'i BProto, upvalues: Vec<Rc<RefCell<LValue<'i>>>>) -> LClosure<'i> {
-        assert_eq!(
-            proto.num_upvalues as usize,
-            upvalues.len(),
-            "Closure instantiated with unexpected number of upvalues"
-        );
-
         Self { proto, upvalues }
     }
 
@@ -222,7 +216,11 @@ impl<'i> LClosure<'i> {
                                     closure(genv, call_stack);
                                 }
                                 LValue::LClosure(ref closure) => {
-                                    assert_eq!(closure.proto.vararg_flag, 0, "varargs unsupported");
+                                    assert!(
+                                        closure.proto.vararg_flag == 0
+                                            || closure.proto.vararg_flag == 3,
+                                        "legacy vararg syntax unsupported"
+                                    );
 
                                     let num_args = match b {
                                         0 => {
@@ -237,6 +235,16 @@ impl<'i> LClosure<'i> {
                                     let closure_base = closure_func + 1 + num_varargs;
                                     let closure_top =
                                         closure_base + closure.proto.max_stack as usize;
+
+                                    println!(
+                                        "num_args={} num_varargs={} c_func={}, c_base={}, c_top={} max_stack={}",
+                                        num_args,
+                                        num_varargs,
+                                        closure_func,
+                                        closure_base,
+                                        closure_top,
+                                        closure.proto.max_stack,
+                                    );
 
                                     //Ensure the stack is large enough
                                     let delta_stack = closure_top - stack.len();
@@ -357,15 +365,39 @@ impl<'i> LClosure<'i> {
                             let proto = Proto!(self.proto, b);
 
                             //Prepare upvalues
-                            assert!(
-                                proto.num_upvalues == 0,
-                                "CLOSURE upvalues not yet implemented"
-                            );
 
                             //Create the closure
                             stack[base + a] = Rc::new(RefCell::new(LValue::LClosure(
                                 LClosure::new(proto, vec![]),
                             )));
+                        }
+                        37 => {
+                            // VARARG
+                            //  VARARG implements the vararg operator ‘...’ in expressions. VARARG
+                            //  copies B-1 parameters into a number of registers starting from R(A),
+                            //  padding with nils if there aren’t enough values. If B is 0, VARARG copies
+                            //  as many values as it can based on the number of parameters passed. If a
+                            //  fixed number of values is required, B is a value greater than 1. If any
+                            //  number of values is required, B is 0.
+
+                            match b {
+                                0 => {
+                                    //Copy varargs starting after func and ending before base
+                                    let mut j = base + a;
+
+                                    // println!("stack {:#?}", stack);
+
+                                    for i in func + 1..base {
+                                        // println!("moving i={} to j={}", i, j);
+                                        stack[j] = stack[i].clone();
+                                        j += 1;
+                                    }
+                                }
+                                b => {
+                                    //Copy (b-1) varargs starting after func
+                                    todo!("VARARG with b-1 unsupported")
+                                }
+                            }
                         }
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }

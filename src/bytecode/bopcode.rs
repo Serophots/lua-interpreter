@@ -3,7 +3,7 @@ use BOpmode::*;
 pub(crate) const OPMODES: [BOpmode; 38] = [
     ABC, ABx, ABC, ABC, ABC, ABx, ABC, ABx, ABC, ABC, ABC, ABC, ABC, ABC, ABC, ABC, ABC, ABC, ABC,
     ABC, ABC, ABC, AsBx, ABC, ABC, ABC, ABC, ABC, ABC, ABC, ABC, AsBx, AsBx, ABC, ABC, ABC, ABx,
-    ABC,
+    ABx,
 ];
 pub(crate) const OPNAMES: [&str; 38] = [
     "MOVE",

@@ -12,8 +12,8 @@ impl BReadable for BLocal {
             local_name: reader
                 .get_string()
                 .expect("Local had name string of length 0"),
-            scope_start: reader.get_int(),
-            scope_end: reader.get_int(),
+            scope_start: reader.get_c_int(),
+            scope_end: reader.get_c_int(),
         }
     }
 }
