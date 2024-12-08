@@ -78,14 +78,11 @@ impl BReader {
         };
 
         //LUAC bits?
-        let luac_int = reader.get_c_int(); //DumpInteger takes a c 'int' type
-        let luac_num = reader.get_lua_number(); //DumpNumber takes lua_Number
-
-        println!("luac_int {:#x}", luac_int);
-        println!("luac_num {}", luac_num);
+        let luac_int = reader.get_lua_integer(); //DumpInteger takes a c 'int' type
+        let luac_num = reader.get_lua_float(); //DumpNumber takes lua_Number
 
         assert_eq!(luac_int, 0x5678, "LUAC_INT constant incorrect");
-        // assert_eq!(luac_num, 370.5, "LUAC_NUM constant incorrect");
+        assert_eq!(luac_num, 370.5, "LUAC_NUM constant incorrect");
 
         let _size_upvalues = reader.get_byte(); //not sure why this is between the header and the first proto
 
@@ -191,26 +188,48 @@ impl BReader {
         }
     }
 
-    pub fn get_lua_number(&mut self) -> f64 {
-        match self.integral_flag {
-            0 => {
-                //Floating point
-                match self.lua_num_size {
-                    4 => self.get_f32() as f64,
-                    8 => self.get_f64(),
-                    n => panic!("invalid chunk l_num_size {}", n),
-                }
-            }
-            1 => {
-                //Integer
-                match self.lua_num_size {
-                    4 => self.get_i32() as f64, //not ideal to cast to float
-                    8 => self.get_i64() as f64, //not ideal to cast to float
-                    n => panic!("invalid chunk l_num_size {}", n),
-                }
-            }
-            n => panic!("Invalid chunk integral flag {}", n),
+    pub fn get_lua_integer(&mut self) -> i64 {
+        // match self.integral_flag {
+        //     0 => {
+        //         //Floating point
+        //         match self.lua_num_size {
+        //             4 => self.get_f32() as f64,
+        //             8 => self.get_f64(),
+        //             n => panic!("invalid chunk l_num_size {}", n),
+        //         }
+        //     }
+        //     1 => {
+        //Integer
+        match self.lua_num_size {
+            4 => self.get_i32() as i64,
+            8 => self.get_i64() as i64,
+            n => panic!("invalid chunk l_num_size {}", n),
         }
+        //     }
+        //     n => panic!("Invalid chunk integral flag {}", n),
+        // }
+    }
+
+    pub fn get_lua_float(&mut self) -> f64 {
+        // match self.integral_flag {
+        //     0 => {
+        //Floating point
+        match self.lua_num_size {
+            4 => self.get_f32() as f64,
+            8 => self.get_f64(),
+            n => panic!("invalid chunk l_num_size {}", n),
+        }
+        // }
+        //     1 => {
+        //         //Integer
+        //         match self.lua_num_size {
+        //             4 => self.get_i32() as f64, //not ideal to cast to float
+        //             8 => self.get_i64() as f64, //not ideal to cast to float
+        //             n => panic!("invalid chunk l_num_size {}", n),
+        //         }
+        //     }
+        //     n => panic!("Invalid chunk integral flag {}", n),
+        // }
     }
 
     pub fn get_string(&mut self) -> Option<String> {
@@ -222,10 +241,8 @@ impl BReader {
         let mut ret = String::with_capacity(len as usize);
 
         for _ in 0..len {
-            ret.push(self.inner.get_u8() as char);
+            ret.push(self.get_byte() as char);
         }
-
-        let _ = self.inner.get_u8(); //Consume null terminating byte
 
         Some(ret)
     }

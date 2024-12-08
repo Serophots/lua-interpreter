@@ -2,12 +2,14 @@ use super::breader::BReadable;
 
 #[derive(Debug)]
 pub struct BUpvalue {
-    name: String,
+    stack_flag: u8,
+    index: u8,
 }
 impl BReadable for BUpvalue {
     fn read(reader: &mut super::breader::BReader) -> Self {
         Self {
-            name: reader.get_string().expect("Upvalue name had length 0"),
+            stack_flag: reader.get_byte(),
+            index: reader.get_byte(),
         }
     }
 }

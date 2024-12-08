@@ -9,7 +9,8 @@ impl BReadable for LPrimitive {
         match indicator {
             0 => Self::NIL,
             1 => Self::BOOL(reader.inner.get_u8() != 0),
-            3 => Self::NUMBER(reader.get_lua_number()),
+            3 => Self::FLOAT(reader.get_lua_float()),
+            19 => Self::INT(reader.get_lua_integer()),
             4 => Self::STRING(reader.get_string().expect("String constant had length 0")),
             n => panic!(
                 "Attempted to read constant of unrecognised type indicator {}",

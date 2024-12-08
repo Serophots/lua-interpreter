@@ -5,10 +5,9 @@ use std::{env, fs, io::Cursor, process::Command};
 use self::breader::BReader;
 
 pub(crate) mod bconstant;
+pub(crate) mod bdebug;
 pub(crate) mod binstruction;
-pub(crate) mod blines;
 pub(crate) mod blist;
-pub(crate) mod blocal;
 pub(crate) mod bopcode;
 pub(crate) mod bproto;
 pub(crate) mod breader;

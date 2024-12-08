@@ -83,7 +83,13 @@ impl<'i> LClosure<'i> {
             );
 
             match *instruction {
-                BInstruction::ABC { opcode, a, b, c } => {
+                BInstruction::ABC {
+                    line,
+                    opcode,
+                    a,
+                    b,
+                    c,
+                } => {
                     let a = a as usize;
                     let b = b as usize;
                     let c = c as usize;
@@ -137,46 +143,46 @@ impl<'i> LClosure<'i> {
                         }
                         opcode @ 12..=17 => {
                             // ADD, SUB, MUL, DIV, MOD, POW
-                            let lhs: f64 = if b < 256 {
-                                match &*stack[base + b].borrow() {
-                                    LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
-                                    _ => panic!(
-                                        "ADD failed: Left hand side stack lvalue is not a number"
-                                    ),
-                                }
-                            } else {
-                                match Kst!(self.proto, (b - 256)) {
-                                    LPrimitive::NUMBER(x) => *x,
-                                    _ => panic!("ADD failed: Left hand side constant lprimitive is not a number"),
-                                }
-                            };
-                            let rhs: f64 = if c < 256 {
-                                match &*stack[base + c].borrow() {
-                                    LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
-                                    _ => panic!(
-                                        "ADD failed: Right hand side stack lvalue is not a number"
-                                    ),
-                                }
-                            } else {
-                                match Kst!(self.proto, (c - 256)) {
-                                        LPrimitive::NUMBER(x) => *x,
-                                        _ => panic!("ADD failed: Right hand side constant lprimitive is not a number"),
-                                    }
-                            };
+                            // let lhs: f64 = if b < 256 {
+                            //     match &*stack[base + b].borrow() {
+                            //         LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
+                            //         _ => panic!(
+                            //             "ADD failed: Left hand side stack lvalue is not a number"
+                            //         ),
+                            //     }
+                            // } else {
+                            //     match Kst!(self.proto, (b - 256)) {
+                            //         LPrimitive::NUMBER(x) => *x,
+                            //         _ => panic!("ADD failed: Left hand side constant lprimitive is not a number"),
+                            //     }
+                            // };
+                            // let rhs: f64 = if c < 256 {
+                            //     match &*stack[base + c].borrow() {
+                            //         LValue::LPrimitive(LPrimitive::NUMBER(x)) => *x,
+                            //         _ => panic!(
+                            //             "ADD failed: Right hand side stack lvalue is not a number"
+                            //         ),
+                            //     }
+                            // } else {
+                            //     match Kst!(self.proto, (c - 256)) {
+                            //             LPrimitive::NUMBER(x) => *x,
+                            //             _ => panic!("ADD failed: Right hand side constant lprimitive is not a number"),
+                            //         }
+                            // };
 
-                            stack[base + a] = Rc::new(RefCell::new(LValue::LPrimitive(
-                                LPrimitive::NUMBER(match opcode {
-                                    12 => lhs + rhs,
-                                    13 => lhs - rhs,
-                                    14 => lhs * rhs,
-                                    15 => lhs / rhs,
-                                    16 => lhs % rhs,
-                                    17 => lhs.powf(rhs),
-                                    _ => {
-                                        unreachable!("opcodes 12..=17 are numerical operations")
-                                    }
-                                }),
-                            )));
+                            // stack[base + a] = Rc::new(RefCell::new(LValue::LPrimitive(
+                            //     LPrimitive::NUMBER(match opcode {
+                            //         12 => lhs + rhs,
+                            //         13 => lhs - rhs,
+                            //         14 => lhs * rhs,
+                            //         15 => lhs / rhs,
+                            //         16 => lhs % rhs,
+                            //         17 => lhs.powf(rhs),
+                            //         _ => {
+                            //             unreachable!("opcodes 12..=17 are numerical operations")
+                            //         }
+                            //     }),
+                            // )));
                         }
                         28 => {
                             // CALL
@@ -308,7 +314,7 @@ impl<'i> LClosure<'i> {
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }
                 }
-                BInstruction::ABx { opcode, a, b } => {
+                BInstruction::ABx { line, opcode, a, b } => {
                     let a = a as usize;
                     let b = b as usize;
                     match opcode {
@@ -402,7 +408,7 @@ impl<'i> LClosure<'i> {
                         _ => todo!("instruction unhandled: {:?}", instruction),
                     }
                 }
-                BInstruction::AsBx { opcode, a, b } => match opcode {
+                BInstruction::AsBx { line, opcode, a, b } => match opcode {
                     0 => {
                         todo!()
                     }

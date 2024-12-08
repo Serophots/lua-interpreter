@@ -7,7 +7,8 @@ use crate::interpreter::{cfunction::CFunction, lclosure::LClosure};
 pub enum LPrimitive {
     NIL,            //0
     BOOL(bool),     //1
-    NUMBER(f64),    //3
+    FLOAT(f64),     //3 | (0 << 4)
+    INT(i64),       //3 | (1 << 4)
     STRING(String), //4
 }
 impl fmt::Display for LPrimitive {
@@ -16,7 +17,8 @@ impl fmt::Display for LPrimitive {
             LPrimitive::NIL => write!(f, "nil"),
             LPrimitive::BOOL(true) => write!(f, "true"),
             LPrimitive::BOOL(false) => write!(f, "false"),
-            LPrimitive::NUMBER(n) => write!(f, "{}", n),
+            LPrimitive::FLOAT(n) => write!(f, "{}", n),
+            LPrimitive::INT(n) => write!(f, "{}", n),
             LPrimitive::STRING(s) => write!(f, "{}", s),
         }
     }

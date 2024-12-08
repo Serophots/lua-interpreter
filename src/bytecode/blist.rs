@@ -12,7 +12,7 @@ where
 {
     pub fn read(reader: &mut BReader) -> Self {
         let size = reader.get_c_int();
-        // println!(" - blist read size: {}", size);
+        println!(" - blist read size: {}", size);
         let mut list = Vec::with_capacity(size as usize);
 
         for _ in 0..size {

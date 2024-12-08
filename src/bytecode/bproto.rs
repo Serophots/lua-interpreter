@@ -1,7 +1,10 @@
 use crate::{bytecode::BReader, lprimative::LPrimitive};
 
 use super::{
-    binstruction::BInstruction, blines::BSrcLine, blist::BList, blocal::BLocal, breader::BReadable,
+    bdebug::{BDebugLineInfo, BDebugLocal, BDebugUpvalue},
+    binstruction::BInstruction,
+    blist::BList,
+    breader::BReadable,
     bupvalue::BUpvalue,
 };
 
@@ -18,17 +21,16 @@ pub struct BProto {
 
     pub(crate) instructions: BList<BInstruction>,
     pub(crate) constants: BList<LPrimitive>,
-    pub(crate) upvalues: BList<BUpvalue>, //optional
+    pub(crate) upvalues: BList<BUpvalue>,
     pub(crate) protos: BList<BProto>,
 
-    pub(crate) src_lines: BList<BSrcLine>, //optional
-    pub(crate) locals: BList<BLocal>,      //optional
+    //Debug data
+    pub(crate) debug_local_vars: BList<BDebugLocal>,
+    pub(crate) debug_upvalues: BList<BDebugUpvalue>,
 }
 impl BReadable for BProto {
     fn read(reader: &mut BReader) -> Self {
-        println!("Reading a proto {}", reader.remaining());
         let source_name = reader.get_string(); //For the top level proto this is defined. For the others get_string() returns None because the string has length -1. So it must be called for all protos even if we know only the top proto has itt
-        println!("src name {:?}", source_name);
         let line_defined = reader.get_c_int();
         let last_line_defined = reader.get_c_int();
         let num_params = reader.get_byte();
@@ -36,18 +38,36 @@ impl BReadable for BProto {
         let max_stack = reader.get_byte();
 
         println!("Reading instructions");
-        let instructions = BList::read(reader);
+        let mut instructions = BList::read(reader);
+
         println!("Reading constants");
         let constants = BList::read(reader);
+
         println!("Reading upvalues");
         let upvalues = BList::read(reader);
+
         println!("Reading protos");
         let protos = BList::read(reader);
 
-        println!("Reading src lines");
-        let src_lines = BList::read(reader);
-        println!("Reading locals");
-        let locals = BList::read(reader);
+        println!("Reading debug lines info");
+        let debug_line_info = BList::<BDebugLineInfo>::read(reader);
+
+        for (instruction, line_info) in instructions
+            .list
+            .iter_mut()
+            .zip(debug_line_info.list.iter())
+        {
+            match instruction {
+                BInstruction::ABC { line, .. } => *line = Some(line_info.line),
+                BInstruction::ABx { line, .. } => *line = Some(line_info.line),
+                BInstruction::AsBx { line, .. } => *line = Some(line_info.line),
+            }
+        }
+
+        println!("Reading debug local names");
+        let debug_local_vars = BList::read(reader);
+        println!("Reading debug upvalue names");
+        let debug_upvalues = BList::read(reader);
 
         Self {
             source_name,
@@ -59,10 +79,11 @@ impl BReadable for BProto {
 
             instructions,
             constants,
-            protos,
-            src_lines,
-            locals,
             upvalues,
+            protos,
+
+            debug_local_vars,
+            debug_upvalues,
         }
     }
 }
